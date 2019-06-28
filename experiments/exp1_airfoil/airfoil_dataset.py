@@ -57,7 +57,6 @@ class AirfoilDataset(Dataset):
         TSR=self.airfoil_df['TSR'].iloc[idx]
         Theta=self.airfoil_df['Theta'].iloc[idx]
         Torque=self.airfoil_df['Torque'].iloc[idx]
-        ClCd=self.airfoil_df['Cl/Cd'].iloc[idx]
         aoa=self.airfoil_df['AoA'].iloc[idx]
         
         # Get numpy shape file
@@ -72,7 +71,6 @@ class AirfoilDataset(Dataset):
                 'TSR': TSR,\
                 'Theta': Theta,\
                 'Torque': Torque,\
-                'Cl/Cd': ClCd,\
                 'AoA': aoa}
         
         return sample

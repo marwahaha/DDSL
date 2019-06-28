@@ -41,7 +41,7 @@ class PolyAirfoils(object):
 
 
 class ShapeOptimizer(object):
-    def __init__(self, polygon, C, model, cfd_data, target, device):
+    def __init__(self, polygon, C, model, cfd_data, target, device, num_theta_points):
         """
         object for optimizing polygonal shapes (airfoil experiment)
         params:
@@ -59,7 +59,8 @@ class ShapeOptimizer(object):
         self.D = torch.ones(self.E.shape[0], 1, dtype=torch.float64)
         self.model = model
         self.cfd_data=cfd_data
-        self.target_tensor = torch.tensor(target, dtype=torch.float64).view(-1,1).to(device)
+        self.num_theta_points = num_theta_points
+        self.target_tensor = torch.tensor([target]*self.num_theta_points, dtype=torch.float64).view(-1,1).to(device)
         self.dV = None
         self.dC = None
         self.res = 224
@@ -113,11 +114,12 @@ class ShapeOptimizer(object):
         self.model.eval()
         self.model.zero_grad()
         criterion=nn.MSELoss()
-        output=self.model(f, self.cfd_data)
-        loss = criterion(output,self.target_tensor)
+        # TODO can we optimize this?
+        outputs = torch.cat([self.model(f, torch.cat((self.cfd_data, torch.tensor(360*point/self.num_theta_points, dtype=torch.float64).view(-1,1)), 1)) for point in range(0, self.num_theta_points)])
+        loss = criterion(outputs,self.target_tensor)
         loss.backward()
-        self.profile['loss'].append(loss.item()) # save loss at current iteration
-        self.profile['Torque'].append(output.item())
+        self.profile['loss'].append(loss.mean()) # save loss at current iteration
+        self.profile['Torque'].append(outputs.mean())
 
         # compute grad on V
         self.dV = self.V.grad.detach().cpu().numpy()
@@ -329,6 +331,7 @@ def main():
     parser.add_argument('-d', '--datadir', type=str, default="processed_data", help='processed data directory path (default: processed_data)')
     parser.add_argument('-s', '--step_size', type=float, default=1e-3, help='step size for shape optimization (default: 1e-3)')
     parser.add_argument('-f', '--frames', type=int, default=100, help='number of frames for optimization animation (default: 100)')
+    parser.add_argument('-ntp', '--num_theta_points', type=int, default=360, help='number of points to check theta (default: 360)')
     parser.add_argument('--no_cuda', action='store_true', help='do not use cuda')
     parser.add_argument('--seed', type=int, default=1, metavar='S', help='random seed (default: 1)')
 
@@ -373,7 +376,7 @@ def main():
     target=(args.target-mean[4])/std[4]
 
     # set up shape optimizer
-    optim = ShapeOptimizer(P, C, model, cfd_data=cfd_data, target=target, device=device)
+    optim = ShapeOptimizer(P, C, model, cfd_data=cfd_data, target=target, device=device, num_theta_points=args.num_theta_points)
 
     # optimize shape
     fig, ax = showPolygon(optim.polygon[-1])
