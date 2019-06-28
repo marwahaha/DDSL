@@ -13,7 +13,7 @@ class AFNet(nn.Module):
         self.out_ch=out_ch
         self.resnet=resnet50(num_classes=bottleneck)
         self.bn=nn.BatchNorm1d(bottleneck)
-        self.fc1=nn.Linear(bottleneck+2,512)
+        self.fc1=nn.Linear(bottleneck+3,512)
         self.bn1=nn.BatchNorm1d(512)
         self.fc2=nn.Linear(512,64)
         self.bn2=nn.BatchNorm1d(64)

@@ -20,7 +20,7 @@ from numpy import asarray, concatenate, ones
 from shapely.geometry import *
 import matplotlib.pyplot as plt
 from matplotlib import animation
-      
+
 class PolyAirfoils(object):
     """
     object for retrieving airfoil polygons
@@ -28,7 +28,7 @@ class PolyAirfoils(object):
     airfoil: string airfoil name
     """
     def __init__(self, airfoil):
-        V,E,_=construct_VED(airfoil, 'cuda', True)
+        V,E,_=construct_VED(airfoil, 'cpu', True)
         self.V=V
         self.E=E
 
@@ -64,8 +64,8 @@ class ShapeOptimizer(object):
         self.dC = None
         self.res = 224
         self.profile = {"loss": [],
-                        "ClCd": []}
-        
+                        "Torque": []}
+
     def step(self, step_size=1e-3, sign=-1, stochastic=False):
         '''
         combines _get_grad and _step.
@@ -78,7 +78,7 @@ class ShapeOptimizer(object):
 
     def _step(self, step_size=1e-3, sign=-1, stochastic=False):
         """
-        Take a step toward gradient direction. 
+        Take a step toward gradient direction.
         params:
         step_size: gradient step size
         sign: 1 or -1, to go maximize or minimize value
@@ -107,25 +107,25 @@ class ShapeOptimizer(object):
         self.V=torch.tensor(self.V, dtype=torch.float64, requires_grad=True)
         self.E=torch.LongTensor(self.E)
         f = ddsl_phys(self.V,self.E,self.D)
-    
+
         # compute loss wrt. target class
         self.model = self.model.double()
-        self.model.eval()  
-        self.model.zero_grad()  
+        self.model.eval()
+        self.model.zero_grad()
         criterion=nn.MSELoss()
-        output=self.model(f, self.cfd_data)  
-        loss = criterion(output,self.target_tensor)  
-        loss.backward()  
+        output=self.model(f, self.cfd_data)
+        loss = criterion(output,self.target_tensor)
+        loss.backward()
         self.profile['loss'].append(loss.item()) # save loss at current iteration
-        self.profile['ClCd'].append(output.item())
+        self.profile['Torque'].append(output.item())
 
         # compute grad on V
         self.dV = self.V.grad.detach().cpu().numpy()
-      
+
         # compute grad on C
         dVdC = self.CPoly.dVdC
-        self.dC = np.einsum("ijkl,ij->kl", dVdC, self.dV)       
-                
+        self.dC = np.einsum("ijkl,ij->kl", dVdC, self.dV)
+
 class CPolygon(object):
     def __init__(self, polygon, C):
         self.polygon = polygon
@@ -135,7 +135,7 @@ class CPolygon(object):
         self.W = None # shape (#V, #C)
         self.dVdC = None # shape (#V, 2, #C, 3)
         self._update_weights()
-        
+
     def update_control(self, dC, rad=True):
         """dC: shape (#C, 3), where 3 dims are x, y, theta"""
         assert(self.C.shape[0] == dC.shape[0])
@@ -151,7 +151,7 @@ class CPolygon(object):
             a, b = self.C[i]
             Rot_trans = np.array([-a*np.cos(t)+b*np.sin(t)+a,
                                   -a*np.sin(t)-b*np.cos(t)+b])
-           
+
             Vnew += self.W[:, i:i+1] * (self.V.dot(Rot.T) + dC[i] + Rot_trans)
         self.V = Vnew # update vertices
         self.C += dC # update control points
@@ -181,8 +181,8 @@ class CPolygon(object):
         self.dVdC[:, 0, :, 2] = self.W * (-vy+cy)
         # d vy / d ctheta
         self.dVdC[:, 1, :, 2] = self.W * (vx-cx)
-        
-        
+
+
     def edgeList(self, startid, length, flip=False):
         # helper function to create edge list
         p1 = np.arange(startid, startid+length)
@@ -192,7 +192,7 @@ class CPolygon(object):
             return np.stack((p1, p2), axis=-1)
         else:
             return np.flipud(np.stack((p2, p1), axis=-1))
-        
+
     def singlePolygon(self, P):
         # helper function for processing a single polygon instance
         assert(isinstance(P, geometry.polygon.Polygon))
@@ -218,7 +218,7 @@ class CPolygon(object):
         if not P.exterior.is_ccw:
             e = np.concatenate([e[:, 1:2], e[:, 0:1]], axis=-1) # flip e
         return v, e, e_segs
-    
+
     def getVE(self):
         E_segs = []
         if isinstance(self.polygon, geometry.polygon.Polygon):
@@ -239,9 +239,9 @@ class CPolygon(object):
                 ecount += v.shape[0]
             V = np.concatenate(V, axis=0)
             E = np.concatenate(E, axis=0)
-        
+
         return V, E, E_segs
-    
+
     def newPolygon(self, V):
         np.testing.assert_array_equal(V.shape, self.V.shape)
         polys = []
@@ -292,19 +292,19 @@ def showPolygon(polygon):
     ax.set_xlim(0,1)
     ax.set_ylim(0,1)
     ax.set_aspect(1.0)
-    
-    return fig, ax    
+
+    return fig, ax
 
 def update(frame_number, ax, step_size, savefile, mean, std, optim, save_shape_as_txt):
     if frame_number > 0:
-        optim.step(step_size, sign=-1, stochastic=False)   
+        optim.step(step_size, sign=-1, stochastic=False)
     path = pathify(optim.polygon[-1])
     patch = PathPatch(path, facecolor='#339966', edgecolor='#999999')
     ax.cla()
     ax.add_patch(patch)
     if frame_number > 0:
-        ClCd=optim.profile['ClCd'][-1]*std+mean
-        title = "Iter: {}, Loss: {:_<6f}, Pred: {:_<6f}".format(frame_number, optim.profile['loss'][-1], ClCd)
+        Torque=optim.profile['Torque'][-1]*std+mean
+        title = "Iter: {}, Loss: {:_<6f}, Pred: {:_<6f}".format(frame_number, optim.profile['loss'][-1], Torque)
         x,y=optim.polygon[-1].exterior.xy
         if save_shape_as_txt:
             np.savetxt(savefile+str(frame_number).zfill(3)+'.txt',pd.DataFrame([x,y]).transpose().values)
@@ -331,14 +331,14 @@ def main():
     parser.add_argument('-f', '--frames', type=int, default=100, help='number of frames for optimization animation (default: 100)')
     parser.add_argument('--no_cuda', action='store_true', help='do not use cuda')
     parser.add_argument('--seed', type=int, default=1, metavar='S', help='random seed (default: 1)')
-    
+
     args = parser.parse_args()
-    
+
     # make save directory
     if not os.path.exists(args.savedir):
         os.mkdir(args.savedir)
     savefile=os.path.join(args.savedir, args.savefile)
-                        
+
     # load CFD datafiles
     filepath=args.datadir
     df=pd.read_csv(os.path.join(filepath, 'airfoil_data_normalized.csv')).drop(columns=['Unnamed: 0'])
@@ -346,7 +346,7 @@ def main():
     stats=pd.read_csv(os.path.join(filepath, 'airfoil_data_mean_std.csv')).drop(columns=['Unnamed: 0'])
     mean=stats['mean']
     std=stats['std']
-                        
+
     use_cuda = not args.no_cuda and torch.cuda.is_available()
     torch.manual_seed(args.seed)
     device = torch.device("cuda" if use_cuda else "cpu")
@@ -356,8 +356,8 @@ def main():
     if use_cuda:
         model = nn.DataParallel(model)
     model.to(device)
-    state=torch.load(os.path.join(args.logdir,"AFNet_model.checkpoint"))
-    model.load_state_dict(state['model'])
+    state=torch.load(os.path.join(args.logdir,"AFNet_model.checkpoint"), map_location='cpu')
+    model.load_state_dict(state['model'], strict=False)
     optimizer=torch.optim.Adam(model.parameters())
     optimizer.load_state_dict(state['optim'])
 
@@ -374,7 +374,7 @@ def main():
 
     # set up shape optimizer
     optim = ShapeOptimizer(P, C, model, cfd_data=cfd_data, target=target, device=device)
-    
+
     # optimize shape
     fig, ax = showPolygon(optim.polygon[-1])
     plt.close()
@@ -389,8 +389,8 @@ def main():
     # save loss and pred
     pd.DataFrame(optim.profile).to_csv(args.savefile+'.csv')
     print('\nLoss and prediction data saved.')
-    
+
     print('\nShape optimization complete!')
-            
+
 if __name__ == "__main__":
-    main() 
+    main()

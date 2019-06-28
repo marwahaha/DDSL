@@ -149,13 +149,13 @@ def main():
         acc_train=0.0
         for i, data in enumerate(validloader, 0):
             # Get inputs
-            shapes=data['shape']
-            shapes=shapes.to(device)
-            cfd_data=torch.cat((data['Re'].view(-1, 1), data['aoa'].view(-1, 1)), 1)
+            shapes=data['shape'] ## TODO where does this come from? 
+            shapes=shapes.to(device) ## TODO what does .view do?
+            cfd_data=torch.cat((data['Theta'].view(-1, 1), data['TSR'].view(-1, 1), data['AoA'].view(-1, 1)), 1)
             cfd_data=cfd_data.to(device)
             
             # Get labels
-            labels=data['Cl/Cd'].view(-1, 1).to(device)
+            labels=data['Torque'].view(-1, 1).to(device)
             labels=labels.to(device)
 
             # Forward
@@ -171,17 +171,17 @@ def main():
 
             # Write to log
             if i%args.log_interval==0:
-                logger.info('Validation set [{}/{} ({:.0f}%)]: Loss: {:.4f}, Cl/Cd R2 score: {:.4f}\r'.format(i*len(shapes), len(validloader.dataset), 100.*i*len(shapes)/len(validloader.dataset), loss.item(), r2))
+                logger.info('Validation set [{}/{} ({:.0f}%)]: Loss: {:.4f}, Torque R2 score: {:.4f}\r'.format(i*len(shapes), len(validloader.dataset), 100.*i*len(shapes)/len(validloader.dataset), loss.item(), r2))
                 
         for i, data in enumerate(trainloader, 0):
             # Get inputs
             shapes=data['shape']
             shapes=shapes.to(device)
-            cfd_data=torch.cat((data['Re'].view(-1, 1), data['aoa'].view(-1, 1)), 1)
+            cfd_data=torch.cat((data['Theta'].view(-1, 1), data['TSR'].view(-1, 1), data['AoA'].view(-1, 1)), 1)
             cfd_data=cfd_data.to(device)
 
             # Get labels
-            labels=data['Cl/Cd'].view(-1, 1).to(device)
+            labels=data['Torque'].view(-1, 1).to(device)
             labels=labels.to(device)
         
             # Zero gradients
@@ -206,7 +206,7 @@ def main():
             
             # Write to log
             if i%args.log_interval==0:
-                logger.info('Train set [{}/{} ({:.0f}%)]: Loss: {:.4f}, Cl/Cd R2 score: {:.4f}\r'.format(i*len(shapes), len(trainloader.dataset), 100.*i*len(shapes)/len(trainloader.dataset), loss.item(), r2))
+                logger.info('Train set [{}/{} ({:.0f}%)]: Loss: {:.4f}, Torque R2 score: {:.4f}\r'.format(i*len(shapes), len(trainloader.dataset), 100.*i*len(shapes)/len(trainloader.dataset), loss.item(), r2))
             
         # Write statistics to Tensorboard
         avg_acc_train=acc_train/len(trainloader)
@@ -219,8 +219,8 @@ def main():
                                          'valid_loss':valid_loss}, epoch)
         
         # Write to log
-        logger.info('[Epoch {}] Train set: Average loss: {:.4f}, Avg Cl/Cd R2 score: {:.4f}\r'.format(epoch, train_loss, avg_acc_train))
-        logger.info('[Epoch {}] Validation set: Average loss: {:.4f}, Avg Cl/Cd R2 score: {:.4f}\r'.format(epoch, valid_loss, avg_acc_valid))
+        logger.info('[Epoch {}] Train set: Average loss: {:.4f}, Avg Torque R2 score: {:.4f}\r'.format(epoch, train_loss, avg_acc_train))
+        logger.info('[Epoch {}] Validation set: Average loss: {:.4f}, Avg Torque R2 score: {:.4f}\r'.format(epoch, valid_loss, avg_acc_valid))
 
         # Save checkpoint
         torch.save({

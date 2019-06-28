@@ -54,9 +54,9 @@ class AirfoilDataset(Dataset):
     def __getitem__(self, idx):    
         # Get CFD info from dataframe
         name=self.airfoil_df['Name'].iloc[idx]
-        Re=self.airfoil_df['Re'].iloc[idx]
-        Cl=self.airfoil_df['Cl'].iloc[idx]
-        Cd=self.airfoil_df['Cd'].iloc[idx]
+        TSR=self.airfoil_df['TSR'].iloc[idx]
+        Theta=self.airfoil_df['Theta'].iloc[idx]
+        Torque=self.airfoil_df['Torque'].iloc[idx]
         ClCd=self.airfoil_df['Cl/Cd'].iloc[idx]
         aoa=self.airfoil_df['AoA'].iloc[idx]
         
@@ -69,10 +69,10 @@ class AirfoilDataset(Dataset):
         # Create dictionary output
         sample={'name': name,\
                 'shape': shape,\
-                'Re': Re,\
-                'Cl': Cl,\
-                'Cd': Cd,\
+                'TSR': TSR,\
+                'Theta': Theta,\
+                'Torque': Torque,\
                 'Cl/Cd': ClCd,\
-                'aoa': aoa}
+                'AoA': aoa}
         
         return sample
