@@ -60,7 +60,7 @@ class AirfoilDataset(Dataset):
         aoa=self.airfoil_df['AoA'].iloc[idx]
         
         # Get numpy shape file
-        af_dir=self.airfoil_df['Directory'].iloc[idx]
+        af_dir=self.airfoil_df['Name'].iloc[idx]
         shape_dir=self.shape_dir
         shape_file=shape_dir+'/'+af_dir+'.pt'
         shape=torch.load(shape_file)
