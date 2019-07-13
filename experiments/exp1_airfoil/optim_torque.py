@@ -1,4 +1,4 @@
-import torch
+priimport torch
 import torch.nn as nn
 import torch.nn.functional as F
 import argparse
@@ -114,8 +114,10 @@ class ShapeOptimizer(object):
         self.model.eval()
         self.model.zero_grad()
         criterion=nn.MSELoss()
+        
         # TODO can we optimize this?
-        outputs = torch.cat([self.model(f, torch.cat((self.cfd_data, torch.tensor(360*point/self.num_theta_points, dtype=torch.float64).view(-1,1)), 1)) for point in range(0, self.num_theta_points)])
+        # This works off of the normalized theta values
+        outputs = torch.cat([self.model(f, torch.cat((torch.tensor(-1.727006+ 2*1.727006*point/self.num_theta_points, dtype=torch.float64).view(-1,1), self.cfd_data), 1)) for point in range(0, self.num_theta_points)])
         loss = criterion(outputs,self.target_tensor)
         loss.backward()
         self.profile['loss'].append(loss.mean()) # save loss at current iteration
@@ -319,7 +321,7 @@ def main():
     # parse arguments
     parser = argparse.ArgumentParser(description='MNIST shape optimization')
     parser.add_argument('--airfoil', type=str, help='name of input airfoil to optimize', required=True)
-    parser.add_argument('-r', '--tsr', type=float, default=1e6, help='tip speed ratio of VAWT')
+    parser.add_argument('-r', '--tsr', type=float, default=4, help='tip speed ratio of VAWT')
     parser.add_argument('-a', '--aoa', type=float, default=0, help='blade airfoil angle of attack')
     parser.add_argument('--C', type=str, help='control points text file', required=True)
     parser.add_argument('--target', type=float, help='target lift-drag ratio', required=True)
@@ -370,9 +372,14 @@ def main():
     C = np.loadtxt(args.C)
 
     # normalize data
+##    print("tsr mean: " + str(mean[1]))
+##    print("tsr stdev: " + str(std[1]))
+##    print("aoa mean: " + str(mean[2]))
+##    print("aoa stdev: " + str(std[2]))
     tsr_in=torch.tensor((args.tsr-mean[1])/std[1], dtype=torch.float64).view(-1,1)
     aoa_in=torch.tensor((args.aoa-mean[2])/std[2], dtype=torch.float64).view(-1,1)
     cfd_data=torch.cat((tsr_in, aoa_in), 1)
+##    print(cfd_data)
     target=(args.target-mean[3])/std[3]
 
     # set up shape optimizer
@@ -380,14 +387,14 @@ def main():
 
     # optimize shape
     fig, ax = showPolygon(optim.polygon[-1])
+    
+    # save animation
+    anim = animation.FuncAnimation(fig, update, interval=100, frames=args.frames, fargs=[ax, args.step_size, args.savefile, mean[3], std[3], optim, args.save_shape_as_txt])
+    Writer = animation.writers['ffmpeg']
+    writer = Writer(fps=5, bitrate=1800)
+    anim.save(args.savefile+'.mp4', writer=writer)
+    print('\nAnimation saved.')
     plt.close()
-
-##    # save animation
-##    anim = animation.FuncAnimation(fig, update, interval=100, frames=args.frames, fargs=[ax, args.step_size, args.savefile, mean[3], std[3], optim, args.save_shape_as_txt])
-##    Writer = animation.writers['ffmpeg']
-##    writer = Writer(fps=5, bitrate=1800)
-##    anim.save(args.savefile+'.mp4', writer=writer)
-##    print('\nAnimation saved.')
 
     # save loss and pred
     pd.DataFrame(optim.profile).to_csv(args.savefile+'.csv')
