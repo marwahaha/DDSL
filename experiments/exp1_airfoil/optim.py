@@ -1,4 +1,4 @@
-priimport torch
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import argparse
@@ -60,7 +60,7 @@ class ShapeOptimizer(object):
         self.model = model
         self.cfd_data=cfd_data
         self.num_theta_points = num_theta_points
-        self.target_tensor = torch.tensor([target]*self.num_theta_points, dtype=torch.float64).view(-1,1).to(device)
+        self.target_tensor = torch.tensor(target, dtype=torch.float64).view(-1,1).to(device)
         self.dV = None
         self.dC = None
         self.res = 224
@@ -114,14 +114,14 @@ class ShapeOptimizer(object):
         self.model.eval()
         self.model.zero_grad()
         criterion=nn.MSELoss()
-        
-        # TODO can we optimize this?
+
+        # Get total torque in a revolution
         # This works off of the normalized theta values
-        outputs = torch.cat([self.model(f, torch.cat((torch.tensor(-1.727006+ 2*1.727006*point/self.num_theta_points, dtype=torch.float64).view(-1,1), self.cfd_data), 1)) for point in range(0, self.num_theta_points)])
-        loss = criterion(outputs,self.target_tensor)
+        output = sum([self.model(f, torch.cat((self._get_normalized_theta(val), self.cfd_data), 1)) for val in range(0, self.num_theta_points)])
+        loss = criterion(output,self.target_tensor)
         loss.backward()
         self.profile['loss'].append(loss.mean()) # save loss at current iteration
-        self.profile['Torque'].append(outputs.mean())
+        self.profile['Torque'].append(output.mean())
 
         # compute grad on V
         self.dV = self.V.grad.detach().cpu().numpy()
@@ -129,6 +129,9 @@ class ShapeOptimizer(object):
         # compute grad on C
         dVdC = self.CPoly.dVdC
         self.dC = np.einsum("ijkl,ij->kl", dVdC, self.dV)
+
+    def _get_normalized_theta(self, val):
+        return torch.tensor(-1.727006 + 2*1.727006*val/self.num_theta_points, dtype=torch.float64).view(-1,1)
 
 class CPolygon(object):
     def __init__(self, polygon, C):
@@ -387,7 +390,7 @@ def main():
 
     # optimize shape
     fig, ax = showPolygon(optim.polygon[-1])
-    
+
     # save animation
     anim = animation.FuncAnimation(fig, update, interval=100, frames=args.frames, fargs=[ax, args.step_size, args.savefile, mean[3], std[3], optim, args.save_shape_as_txt])
     Writer = animation.writers['ffmpeg']
