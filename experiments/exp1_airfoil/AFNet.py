@@ -3,7 +3,8 @@ from resnet import *
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.autograd import Variable        
+from torch.autograd import Variable   
+torch.set_default_tensor_type('torch.DoubleTensor')
 
 # Define convolutional neural network
 class AFNet(nn.Module):
