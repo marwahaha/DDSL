@@ -325,7 +325,7 @@ def main():
     parser.add_argument('--target', type=float, help='target aspect ratio', required=True)
     parser.add_argument('--savefile', type=str, help='save file path', required=True)
     parser.add_argument('--savedir', type=str, default='optim', help='save file directory (default: optim)')
-    parser.add_argument('-t','--save_shape_as_txt', action='store_true',default=True, help='save coordinates of shapes in each iteration as text files (default: False)')
+    parser.add_argument('-t','--save_shape_as_txt', action='store_true',default=False, help='save coordinates of shapes in each iteration as text files (default: False)')
     parser.add_argument('-l', '--logdir', type=str, default="log", help='log directory path (default: log)')
     parser.add_argument('-b', '--bottleneck', type=int, default=1000, help='bottleneck parameter used for model (default: 1000)')
     parser.add_argument('-d', '--datadir', type=str, default="processed_data", help='processed data directory path (default: processed_data)')
