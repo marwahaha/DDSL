@@ -9,32 +9,23 @@ import numpy as np
 print('Now processing CFD data...')
 
 # Process data
-def process_airfoil_data(directory='data'):
+def process_airfoil_data(directory='Rectangle Test'):
     '''
     Get airfoil shape from preprocessed numpy files and CFD
     information from webscraped csv files.
     Files are retrieved from the airfoil-data directory by default.
     Output is a pandas dataframe containing the following information:
-    - Airfoil name
-    - Airfoil shape
-    - Angle of attack
-    - Reynolds number
-    - N_crit
-    - C_l
-    - C_d
-    - C_m
+    - Case name
+    - Rectangle shape
+    - Aspect Ratio
     '''
+    
     # Initialize lists
-    aoa_list=[]
-    airfoil_list=[]
-    Re_list=[]
-    Cl_list=[]
-    Cd_list=[]
-    ClCd_list=[]
-    afdir_list=[]
+    ar_list=[]
+    case_list=[]
+    casedir_list=[]
 
-    # Create a counter
-    i=0
+
 
     # Go through files
     for root, dirs, files in os.walk(directory):
@@ -42,51 +33,32 @@ def process_airfoil_data(directory='data'):
             filepath=os.path.join(root, file)
 
             # Get airfoil directory to retrieve numpy files later
-            afdir=root.replace(directory+'/', '') # Get folder name to get airfoil shape numpy file name
-
-            # Get data from csv files
-            if 'csv' in file and '-n5.' not in file and 'airfoil_' not in file:
-                with open(filepath) as f:
-
-                    # Read csv
-                    r=csv.reader(f)
-                    data=list(r)
-
-                    # Get general airfoil information
-                    airfoil_name=data[2][1]
-                    Re=data[3][1]
-
-                    # For each angle of attack, append airfoil name, Reynolds number, Ncrit,
-                    # and corresponding force coefficients to respective lists
-                    for row in range(11, len(data)):
-                        aoa_list.append(data[row][0])
-                        Cl_list.append(data[row][1])
-                        Cd_list.append(data[row][2])
-                        ClCd_list.append(float(data[row][1])/float(data[row][2]))
-                        airfoil_list.append(airfoil_name)
-                        Re_list.append(Re)
-                        afdir_list.append(afdir)
-
-                # Increment counter and print file number every 1000 files
-                i+=1
-                if i%1000==0:
-                    print(i, 'files processed.')
+            casedir=root.replace(directory+'/', '') # Get folder name to get airfoil shape numpy file name
+            for index in range(len(file)):
+                if file[index] == '_':
+                    name_cut = index
+                    break
+            
+            case_name = file[0:4] + file[5:name_cut]
+            
+            casedir_list.append(casedir)
+            case_list.append(case_name)
+            ar_list.append(float(file[name_cut+7:len(file)-4]))
+            print(file[name_cut+7:len(file)-4])
+            
+            
 
     # Notify that all files have been processed
-    print('All',i,'files processed!')
+    print('All files processed!')
     print('Creating dataframe...')
 
     # Initialize dataframe
-    airfoil_df=pd.DataFrame(columns=['Name','Directory','AoA','Re','Cl','Cd','Cl/Cd'])
+    airfoil_df=pd.DataFrame(columns=['Name','Directory','AR'])
 
     # Add data lists to dataframe
-    airfoil_df['Name']=airfoil_list
-    airfoil_df['Directory']=afdir_list
-    airfoil_df['AoA']=aoa_list
-    airfoil_df['Re']=Re_list
-    airfoil_df['Cl']=Cl_list
-    airfoil_df['Cd']=Cd_list
-    airfoil_df['Cl/Cd']=ClCd_list
+    airfoil_df['Name']=case_list
+    airfoil_df['Directory']=casedir_list
+    airfoil_df['AR']=ar_list
 
     # Notify that dataframe has been created
     print('Dataframe created!')
@@ -95,15 +67,12 @@ def process_airfoil_data(directory='data'):
 
 
 # Fix data types in dataframe
-def fix_df_dtypes(airfoil_df, datatypes=['str', 'str', 'float', 'float', 'float', 'float', 'float']):
+def fix_df_dtypes(airfoil_df, datatypes=['str', 'str', 'float']):
     # Fix data types
     airfoil_df['Name']=airfoil_df['Name'].astype(datatypes[0])
     airfoil_df['Directory']=airfoil_df['Directory'].astype(datatypes[1])
-    airfoil_df['AoA']=airfoil_df['AoA'].astype(datatypes[2])
-    airfoil_df['Re']=airfoil_df['Re'].astype(datatypes[3])
-    airfoil_df['Cl']=airfoil_df['Cl'].astype(datatypes[4])
-    airfoil_df['Cd']=airfoil_df['Cd'].astype(datatypes[5])
-    airfoil_df['Cl/Cd']=airfoil_df['Cl/Cd'].astype(datatypes[6])
+    airfoil_df['AR']=airfoil_df['AR'].astype(datatypes[2])
+
 
     return airfoil_df
 
@@ -113,7 +82,7 @@ def normalize_data(csv_file):
     mstd_csv_file=csv_file.replace('.csv', '')+'_mean_std.csv'
 
     df=pd.read_csv(csv_file).drop('Unnamed: 0', axis=1)
-    variables=['AoA','Re','Cl','Cd','Cl/Cd']
+    variables=['AR']
     mean=df.loc[:, variables].mean()
     std=df.loc[:, variables].std()
     df.loc[:, variables]=(df.loc[:, variables]-mean)/std

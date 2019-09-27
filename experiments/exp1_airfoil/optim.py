@@ -41,7 +41,7 @@ class PolyAirfoils(object):
 
 
 class ShapeOptimizer(object):
-    def __init__(self, polygon, C, model, cfd_data, target, device, num_theta_points):
+    def __init__(self, polygon, C, model, target, device):
         """
         object for optimizing polygonal shapes (airfoil experiment)
         params:
@@ -58,14 +58,12 @@ class ShapeOptimizer(object):
         self.polygon = [polygon]
         self.D = torch.ones(self.E.shape[0], 1, dtype=torch.float64)
         self.model = model
-        self.cfd_data=cfd_data
-        self.num_theta_points = num_theta_points
         self.target_tensor = torch.tensor(target, dtype=torch.float64).view(-1,1).to(device)
         self.dV = None
         self.dC = None
         self.res = 224
         self.profile = {"loss": [],
-                        "Torque": []}
+                        "AR": []}
 
     def step(self, step_size=1e-3, sign=-1, stochastic=False):
         '''
@@ -115,13 +113,12 @@ class ShapeOptimizer(object):
         self.model.zero_grad()
         criterion=nn.MSELoss()
 
-        # Get total torque in a revolution
-        # This works off of the normalized theta values
-        output = sum([self.model(f, torch.cat((self._get_normalized_theta(val), self.cfd_data), 1)) for val in range(0, self.num_theta_points)])
+        # Get AR
+        output = self.model(f)
         loss = criterion(output,self.target_tensor)
         loss.backward()
-        self.profile['loss'].append(loss.mean()) # save loss at current iteration
-        self.profile['Torque'].append(output.mean())
+        self.profile['loss'].append(loss.item()) # save loss at current iteration
+        self.profile['AR'].append(output.item())
 
         # compute grad on V
         self.dV = self.V.grad.detach().cpu().numpy()
@@ -129,9 +126,6 @@ class ShapeOptimizer(object):
         # compute grad on C
         dVdC = self.CPoly.dVdC
         self.dC = np.einsum("ijkl,ij->kl", dVdC, self.dV)
-
-    def _get_normalized_theta(self, val):
-        return torch.tensor(-1.727006 + 2*1.727006*val/self.num_theta_points, dtype=torch.float64).view(-1,1)
 
 class CPolygon(object):
     def __init__(self, polygon, C):
@@ -296,8 +290,8 @@ def showPolygon(polygon):
 
     ax.add_patch(patch)
 
-    ax.set_xlim(0,1)
-    ax.set_ylim(0,1)
+    ax.set_xlim(-4,4)
+    ax.set_ylim(-4,4)
     ax.set_aspect(1.0)
 
     return fig, ax
@@ -310,13 +304,14 @@ def update(frame_number, ax, step_size, savefile, mean, std, optim, save_shape_a
     ax.cla()
     ax.add_patch(patch)
     if frame_number > 0:
-        Torque=optim.profile['Torque'][-1]*std+mean
+        Torque=optim.profile['AR'][-1]*std+mean
         title = "Iter: {}, Loss: {:_<6f}, Pred: {:_<6f}".format(frame_number, optim.profile['loss'][-1], Torque)
         x,y=optim.polygon[-1].exterior.xy
         if save_shape_as_txt:
             np.savetxt(savefile+str(frame_number).zfill(3)+'.txt',pd.DataFrame([x,y]).transpose().values)
     else:
         title = "Iter: {0}".format(frame_number)
+
     ax.set_title(title)
     print(title)
 
@@ -327,16 +322,15 @@ def main():
     parser.add_argument('-r', '--tsr', type=float, default=4, help='tip speed ratio of VAWT')
     parser.add_argument('-a', '--aoa', type=float, default=0, help='blade airfoil angle of attack')
     parser.add_argument('--C', type=str, help='control points text file', required=True)
-    parser.add_argument('--target', type=float, help='target lift-drag ratio', required=True)
+    parser.add_argument('--target', type=float, help='target aspect ratio', required=True)
     parser.add_argument('--savefile', type=str, help='save file path', required=True)
     parser.add_argument('--savedir', type=str, default='optim', help='save file directory (default: optim)')
-    parser.add_argument('-t','--save_shape_as_txt', action='store_true',default=False, help='save coordinates of shapes in each iteration as text files (default: False)')
+    parser.add_argument('-t','--save_shape_as_txt', action='store_true',default=True, help='save coordinates of shapes in each iteration as text files (default: False)')
     parser.add_argument('-l', '--logdir', type=str, default="log", help='log directory path (default: log)')
     parser.add_argument('-b', '--bottleneck', type=int, default=1000, help='bottleneck parameter used for model (default: 1000)')
     parser.add_argument('-d', '--datadir', type=str, default="processed_data", help='processed data directory path (default: processed_data)')
     parser.add_argument('-s', '--step_size', type=float, default=1e-3, help='step size for shape optimization (default: 1e-3)')
     parser.add_argument('-f', '--frames', type=int, default=100, help='number of frames for optimization animation (default: 100)')
-    parser.add_argument('-ntp', '--num_theta_points', type=int, default=360, help='number of points to check theta (default: 360)')
     parser.add_argument('--no_cuda', action='store_true', help='do not use cuda')
     parser.add_argument('--seed', type=int, default=1, metavar='S', help='random seed (default: 1)')
 
@@ -372,27 +366,19 @@ def main():
     # get input airfoil shape and control points
     pairfoils = PolyAirfoils(args.airfoil)
     P = pairfoils.get_poly()
-    C = np.loadtxt(args.C)
-
+    C = np.loadtxt(args.C, delimiter=',')
+    
     # normalize data
-##    print("tsr mean: " + str(mean[1]))
-##    print("tsr stdev: " + str(std[1]))
-##    print("aoa mean: " + str(mean[2]))
-##    print("aoa stdev: " + str(std[2]))
-    tsr_in=torch.tensor((args.tsr-mean[1])/std[1], dtype=torch.float64).view(-1,1)
-    aoa_in=torch.tensor((args.aoa-mean[2])/std[2], dtype=torch.float64).view(-1,1)
-    cfd_data=torch.cat((tsr_in, aoa_in), 1)
-##    print(cfd_data)
-    target=(args.target-mean[3])/std[3]
+    target=(args.target-mean[0])/std[0]
 
     # set up shape optimizer
-    optim = ShapeOptimizer(P, C, model, cfd_data=cfd_data, target=target, device=device, num_theta_points=args.num_theta_points)
+    optim = ShapeOptimizer(P, C, model, target=target, device=device)
 
     # optimize shape
     fig, ax = showPolygon(optim.polygon[-1])
 
     # save animation
-    anim = animation.FuncAnimation(fig, update, interval=100, frames=args.frames, fargs=[ax, args.step_size, args.savefile, mean[3], std[3], optim, args.save_shape_as_txt])
+    anim = animation.FuncAnimation(fig, update, interval=100, frames=args.frames, fargs=[ax, args.step_size, args.savefile, mean[0], std[0], optim, args.save_shape_as_txt])
     Writer = animation.writers['ffmpeg']
     writer = Writer(fps=5, bitrate=1800)
     anim.save(args.savefile+'.mp4', writer=writer)

@@ -1,0 +1,1 @@
+python3 optim.py --airfoil  --target 2 --C './Rectangle Test/case=5_score=0.598004132984397.csv'  --savefile rect-optim --step_size 1e-4 --no_cuda -b 6 -f 10
