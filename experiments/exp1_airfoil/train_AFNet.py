@@ -15,6 +15,7 @@ import logging
 import datetime
 
 from sklearn.metrics import r2_score
+import time
 
 def main():
     # Training settings
@@ -139,7 +140,9 @@ def main():
     print('\nTraining neural network...')
     
     # Train AFNet
+    start_time = time.time()
     for epoch in range(args.epochs):
+        epoch_start_time = time.time()
         if args.decay:
             scheduler.step()
             
@@ -151,15 +154,13 @@ def main():
             # Get inputs
             shapes=data['shape'] ## TODO where does this come from? 
             shapes=shapes.to(device) ## TODO what does .view do?
-            cfd_data=torch.cat((data['Theta'].view(-1, 1), data['TSR'].view(-1, 1), data['AoA'].view(-1, 1)), 1)
-            cfd_data=cfd_data.to(device)
             
             # Get labels
-            labels=data['Torque'].view(-1, 1).to(device)
+            labels=data['AR'].view(-1, 1).to(device)
             labels=labels.to(device)
 
             # Forward
-            outputs=net(shapes, cfd_data)
+            outputs=net(shapes)
             loss=criterion(outputs, labels)
 
             # Running loss
@@ -171,24 +172,22 @@ def main():
 
             # Write to log
             if i%args.log_interval==0:
-                logger.info('Validation set [{}/{} ({:.0f}%)]: Loss: {:.4f}, Torque R2 score: {:.4f}\r'.format(i*len(shapes), len(validloader.dataset), 100.*i*len(shapes)/len(validloader.dataset), loss.item(), r2))
+                logger.info('Validation set [{}/{} ({:.0f}%)]: Loss: {:.4f}, AR R2 score: {:.4f}\r'.format(i*len(shapes), len(validloader.dataset), 100.*i*len(shapes)/len(validloader.dataset), loss.item(), r2))
                 
         for i, data in enumerate(trainloader, 0):
             # Get inputs
             shapes=data['shape']
             shapes=shapes.to(device)
-            cfd_data=torch.cat((data['Theta'].view(-1, 1), data['TSR'].view(-1, 1), data['AoA'].view(-1, 1)), 1)
-            cfd_data=cfd_data.to(device)
 
             # Get labels
-            labels=data['Torque'].view(-1, 1).to(device)
+            labels=data['AR'].view(-1, 1).to(device)
             labels=labels.to(device)
         
             # Zero gradients
             optimizer.zero_grad()
 
             # Forward
-            outputs=net(shapes, cfd_data)
+            outputs=net(shapes)
             loss=criterion(outputs, labels)
 
             # Backward
@@ -206,7 +205,7 @@ def main():
             
             # Write to log
             if i%args.log_interval==0:
-                logger.info('Train set [{}/{} ({:.0f}%)]: Loss: {:.4f}, Torque R2 score: {:.4f}\r'.format(i*len(shapes), len(trainloader.dataset), 100.*i*len(shapes)/len(trainloader.dataset), loss.item(), r2))
+                logger.info('Train set [{}/{} ({:.0f}%)]: Loss: {:.4f}, AR R2 score: {:.4f}\r'.format(i*len(shapes), len(trainloader.dataset), 100.*i*len(shapes)/len(trainloader.dataset), loss.item(), r2))
             
         # Write statistics to Tensorboard
         avg_acc_train=acc_train/len(trainloader)
@@ -234,6 +233,8 @@ def main():
         acc_train=0.0
         running_loss = 0.0
         valid_running_loss = 0.0
+
+        logger.info('Epoch Complete: Epoch time: {} ; Total Elapsed Time: {}\n'.format(time.time()-epoch_start_time, time.time()-start_time))
 
     print('\nFinished training!')
 

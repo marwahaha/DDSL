@@ -14,13 +14,13 @@ class AFNet(nn.Module):
         self.out_ch=out_ch
         self.resnet=resnet50(num_classes=bottleneck)
         self.bn=nn.BatchNorm1d(bottleneck)
-        self.fc1=nn.Linear(bottleneck+3,512)
+        self.fc1=nn.Linear(bottleneck,512)
         self.bn1=nn.BatchNorm1d(512)
         self.fc2=nn.Linear(512,64)
         self.bn2=nn.BatchNorm1d(64)
         self.fc3=nn.Linear(64,out_ch)
     
-    def forward(self, shapes, cfd_data):         
+    def forward(self, shapes):         
         # Resize shape into 4D tensor for input
         x=shapes.view(-1, 1, 224, 224)
         
@@ -29,18 +29,10 @@ class AFNet(nn.Module):
         x=self.bn(x)
         x=F.relu(x)
         
-        # Append CFD data
-        x=self.append_cfd_data(x, cfd_data)
-        
         # Fully connected layers
         x=F.relu(self.bn1(self.fc1(x)))
         x=F.relu(self.bn2(self.fc2(x)))
         x=self.fc3(x)
 
-        return x
-
-    def append_cfd_data(self, x, cfd_data):
-        # Append data
-        x=torch.cat((x, cfd_data), 1)
         return x
     

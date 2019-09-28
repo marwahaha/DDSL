@@ -49,8 +49,7 @@ def construct_VED(airfoil, device, grad):
 
     # Get airfoil
     V=[]
-    with open('data/'+airfoil+'/seligdatfile', 'r') as f:
-        next(f)
+    with open('Rectangle Test/'+airfoil, 'r') as f:
         d=f.readlines()
         for i in d:
             k=i.rstrip().split(' ')
@@ -61,10 +60,12 @@ def construct_VED(airfoil, device, grad):
     V += eps * torch.rand_like(V) # add noise to avoid divide by zero
     
     # Position airfoil in center
-    V=0.9*V
-    centroid=torch.tensor([(torch.max(V[:,0])-torch.min(V[:,0]))/2,(torch.max(V[:,1])-torch.min(V[:,1]))/2], dtype=float_type)
-    offset=torch.tensor([0.5,0.5], dtype=float_type)-centroid
-    V=V+offset
+    # print(airfoil)
+    # V=0.9*V
+    # centroid=torch.tensor([(torch.max(V[:,0])-torch.min(V[:,0]))/2,(torch.max(V[:,1])-torch.min(V[:,1]))/2], dtype=float_type)
+    # offset=torch.tensor([0.5,0.5], dtype=float_type)-centroid
+    # print(centroid, offset)
+    # V=V+offset
 
     # Construct E
     E=[]

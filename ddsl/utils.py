@@ -202,11 +202,11 @@ def normalize_V(V, margin=0.2):
     """
     V = V.clone()
     # normalize V
-    V_bb = torch.max(V, dim=0)[0] - torch.min(V, dim=0)[0]
-    V_c = (torch.max(V, dim=0)[0] + torch.min(V, dim=0)[0]) / 2
-    V -= V_c
-    V /= (1/(1-margin))*V_bb.max()
-    V += 0.5
+    V_bb = torch.max(V, dim=0)[0] - torch.min(V, dim=0)[0] #length of shape
+    V_c = (torch.max(V, dim=0)[0] + torch.min(V, dim=0)[0]) / 2 # x center of shape
+    V -= V_c #move so x center is at zero
+    V /= (1/(1-margin))*V_bb.max() #scale so that the x length is 1-margin
+    V += 0.5 #shift so center is at 0.5
     return V
 
 def readOBJ(filename, check=True):

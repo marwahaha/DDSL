@@ -1,1 +1,1 @@
-python3 optim.py --airfoil e434 --target 10000 --datadir=/Users/Kealan/Documents/Github/DDSL/experiments/exp1_airfoil/ --C e434_dat --savefile s1223_to_95 --step_size 1e-4 --no_cuda -b 6 -f 10 -ntp 5
+python3 optim.py --airfoil 'case=3.0103196766955462_score=0.33219063335416543.txt' --target 1 --C './Rectangle Test/case=3.0103196766955462_score=0.33219063335416543.txt'  --save_shape_as_txt --savefile rect-optim --step_size 0.002 --no_cuda -b 10 -f 300
