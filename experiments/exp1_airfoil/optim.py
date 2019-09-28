@@ -290,8 +290,8 @@ def showPolygon(polygon):
 
     ax.add_patch(patch)
 
-    ax.set_xlim(-4,4)
-    ax.set_ylim(-4,4)
+    ax.set_xlim((-4,4))
+    ax.set_ylim((-4,4))
     ax.set_aspect(1.0)
 
     return fig, ax
