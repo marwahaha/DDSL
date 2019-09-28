@@ -366,7 +366,7 @@ def main():
     # get input airfoil shape and control points
     pairfoils = PolyAirfoils(args.airfoil)
     P = pairfoils.get_poly()
-    C = np.loadtxt(args.C, delimiter=',')
+    C = np.loadtxt(args.C, delimiter=' ')
     
     # normalize data
     target=(args.target-mean[0])/std[0]
